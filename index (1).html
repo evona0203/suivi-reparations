@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Suivi de ma réparation</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#0d0f14;--surface:#151820;--border:#22262f;--accent:#00e5a0;--accent2:#005c3f;--text:#e8eaf0;--muted:#6b7280;--danger:#ff5f5f;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px 80px}
+  header{text-align:center;margin-bottom:48px;animation:fadeDown .6s ease both}
+  .logo-dot{width:10px;height:10px;background:var(--accent);border-radius:50%;display:inline-block;margin-right:8px;box-shadow:0 0 12px var(--accent)}
+  header h1{font-family:'Syne',sans-serif;font-size:clamp(1.8rem,5vw,2.8rem);font-weight:800;letter-spacing:-.03em;line-height:1.1}
+  header p{color:var(--muted);margin-top:10px;font-size:.95rem;font-weight:300}
+  .card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:36px 32px;width:100%;max-width:520px;animation:fadeUp .6s ease both}
+  .input-group{display:flex;gap:10px;margin-top:4px}
+  input[type="text"]{flex:1;background:var(--bg);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Syne',sans-serif;font-size:1rem;font-weight:600;letter-spacing:.05em;padding:14px 18px;outline:none;transition:border-color .2s;text-transform:uppercase}
+  input[type="text"]:focus{border-color:var(--accent)}
+  input[type="text"]::placeholder{color:var(--muted);font-weight:400;text-transform:none;letter-spacing:0}
+  button{background:var(--accent);border:none;border-radius:10px;color:#000;cursor:pointer;font-family:'Syne',sans-serif;font-size:.9rem;font-weight:700;padding:14px 22px;transition:opacity .15s,transform .1s;white-space:nowrap}
+  button:hover{opacity:.85}button:active{transform:scale(.97)}button:disabled{opacity:.4;cursor:not-allowed}
+  #result{margin-top:28px;display:none}
+  .result-header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:20px}
+  .ticket-id{font-family:'Syne',sans-serif;font-size:1.2rem;font-weight:700}
+  .client-name{color:var(--muted);font-size:.9rem}
+  .timeline{display:flex;flex-direction:column;gap:0;margin:24px 0}
+  .step{display:flex;align-items:flex-start;gap:14px;position:relative}
+  .step:not(:last-child)::after{content:'';position:absolute;left:11px;top:26px;width:2px;height:calc(100% - 4px);background:var(--border)}
+  .step.done::after{background:var(--accent2)}.step.active::after{background:var(--border)}
+  .dot{width:24px;height:24px;border-radius:50%;border:2px solid var(--border);background:var(--bg);flex-shrink:0;margin-top:2px;display:flex;align-items:center;justify-content:center;z-index:1;transition:all .3s}
+  .step.done .dot{background:var(--accent2);border-color:var(--accent)}
+  .step.active .dot{background:var(--accent);border-color:var(--accent);box-shadow:0 0 16px var(--accent);animation:pulse 2s infinite}
+  .dot svg{display:none}.step.done .dot svg{display:block}
+  .step-label{padding:4px 0 20px;font-size:.88rem}
+  .step.done .step-label{color:var(--muted)}.step.active .step-label{color:var(--text);font-weight:500}.step.future .step-label{color:#3a3f4a}
+  .step-badge{display:inline-block;background:var(--accent);color:#000;font-family:'Syne',sans-serif;font-size:.72rem;font-weight:700;letter-spacing:.06em;padding:2px 8px;border-radius:20px;margin-left:6px;vertical-align:middle}
+  .info-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px}
+  .info-item{background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px 16px}
+  .info-item.full{grid-column:1/-1}
+  .info-label{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px}
+  .info-value{font-size:.92rem;font-weight:500}
+  #error{display:none;margin-top:20px;background:rgba(255,95,95,.08);border:1px solid rgba(255,95,95,.25);border-radius:12px;padding:14px 18px;color:var(--danger);font-size:.9rem;text-align:center}
+  .loader{display:none;margin-top:20px;text-align:center;color:var(--muted);font-size:.9rem}
+  .spinner{width:22px;height:22px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block;vertical-align:middle;margin-right:8px}
+  footer{margin-top:40px;color:var(--muted);font-size:.8rem;text-align:center}
+  @keyframes fadeDown{from{opacity:0;transform:translateY(-20px)}to{opacity:1;transform:none}}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @keyframes pulse{0%,100%{box-shadow:0 0 10px var(--accent)}50%{box-shadow:0 0 24px var(--accent),0 0 48px rgba(0,229,160,.3)}}
+</style>
+</head>
+<body>
+<header>
+  <div><span class="logo-dot"></span><span style="font-family:'Syne';font-size:.8rem;font-weight:600;letter-spacing:.12em;color:var(--muted);text-transform:uppercase;">Suivi en temps réel</span></div>
+  <h1>Où en est<br/>ma réparation ?</h1>
+  <p>Entrez votre numéro de ticket pour connaître l'état d'avancement.</p>
+</header>
+<div class="card">
+  <div class="input-group">
+    <input type="text" id="ticketInput" placeholder="Ex : REP-001" maxlength="20" />
+    <button id="searchBtn" onclick="rechercher()">Rechercher</button>
+  </div>
+  <div class="loader" id="loader"><span class="spinner"></span> Recherche en cours…</div>
+  <div id="error">❌ Numéro de ticket introuvable. Vérifiez le numéro et réessayez.</div>
+  <div id="result">
+    <div class="result-header reveal">
+      <div>
+        <div class="ticket-id" id="rTicket"></div>
+        <div class="client-name" id="rClient"></div>
+      </div>
+    </div>
+    <div class="timeline" id="timeline"></div>
+    <div class="info-grid reveal">
+      <div class="info-item"><div class="info-label">Machine</div><div class="info-value" id="rMachine"></div></div>
+      <div class="info-item"><div class="info-label">Date de dépôt</div><div class="info-value" id="rDate"></div></div>
+      <div class="info-item full" id="rDiagBlock" style="display:none"><div class="info-label">Note du technicien</div><div class="info-value" id="rDiag"></div></div>
+      <div class="info-item full" id="rComBlock" style="display:none"><div class="info-label">Commentaire</div><div class="info-value" id="rCom"></div></div>
+    </div>
+  </div>
+</div>
+<footer>Pour toute question, contactez votre service de réparation.</footer>
+<script>
+const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwcTYwqxobmx1DQmUpnT06wAdwn9GUAIHSmH_Ou04fWLTzzM7mAX5NhKd9sQEJKdqa7/exec";
+const ETAPES = ["Réceptionné","Diagnostic en cours","Devis","En attente de pièce","Réparation en cours","Machine en cours de livraison"];
+
+function rechercher() {
+  const input = document.getElementById("ticketInput");
+  const val = input.value.trim();
+  if (!val) { input.focus(); return; }
+  document.getElementById("result").style.display = "none";
+  document.getElementById("error").style.display = "none";
+  document.getElementById("loader").style.display = "block";
+  document.getElementById("searchBtn").disabled = true;
+  fetch(APPS_SCRIPT_URL + "?ticket=" + encodeURIComponent(val.toUpperCase()))
+    .then(r => r.json())
+    .then(data => afficherResultat(data))
+    .catch(() => afficherErreur());
+}
+
+function afficherResultat(data) {
+  document.getElementById("loader").style.display = "none";
+  document.getElementById("searchBtn").disabled = false;
+  if (!data.found) { document.getElementById("error").style.display = "block"; return; }
+  document.getElementById("rTicket").textContent = data.ticket;
+  document.getElementById("rClient").textContent = data.client;
+  document.getElementById("rMachine").textContent = data.machine || "—";
+  document.getElementById("rDate").textContent = data.date || "—";
+  if (data.diagnostic) { document.getElementById("rDiag").textContent = data.diagnostic; document.getElementById("rDiagBlock").style.display = ""; }
+  else { document.getElementById("rDiagBlock").style.display = "none"; }
+  if (data.commentaire) { document.getElementById("rCom").textContent = data.commentaire; document.getElementById("rComBlock").style.display = ""; }
+  else { document.getElementById("rComBlock").style.display = "none"; }
+  const activeIdx = ETAPES.indexOf(data.statut);
+  const timeline = document.getElementById("timeline");
+  timeline.innerHTML = "";
+  ETAPES.forEach((label, i) => {
+    let cls = i < activeIdx ? "done" : i === activeIdx ? "active" : "future";
+    const check = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#00e5a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+    const badge = i === activeIdx ? `<span class="step-badge">EN COURS</span>` : "";
+    timeline.innerHTML += `<div class="step ${cls}"><div class="dot">${cls==="done"?check:""}</div><div class="step-label">${label}${badge}</div></div>`;
+  });
+  document.getElementById("result").style.display = "block";
+}
+
+function afficherErreur() {
+  document.getElementById("loader").style.display = "none";
+  document.getElementById("searchBtn").disabled = false;
+  const err = document.getElementById("error");
+  err.style.display = "block";
+  err.textContent = "❌ Une erreur est survenue. Veuillez réessayer.";
+}
+
+document.getElementById("ticketInput").addEventListener("keydown", e => { if (e.key === "Enter") rechercher(); });
+</script>
+</body>
+</html>
