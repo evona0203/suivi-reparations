@@ -6,9 +6,7 @@
 <title>Suivi de ma réparation</title>
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
 <style>
-  :root {
-    --bg:#0d0f14;--surface:#151820;--border:#22262f;--accent:#00e5a0;--accent2:#005c3f;--text:#e8eaf0;--muted:#6b7280;--danger:#ff5f5f;
-  }
+  :root{--bg:#0d0f14;--surface:#151820;--border:#22262f;--accent:#00e5a0;--accent2:#005c3f;--text:#e8eaf0;--muted:#6b7280;--danger:#ff5f5f}
   *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
   body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:40px 16px 80px}
   header{text-align:center;margin-bottom:48px;animation:fadeDown .6s ease both}
@@ -66,14 +64,14 @@
   <div class="loader" id="loader"><span class="spinner"></span> Recherche en cours…</div>
   <div id="error">❌ Numéro de ticket introuvable. Vérifiez le numéro et réessayez.</div>
   <div id="result">
-    <div class="result-header reveal">
+    <div class="result-header">
       <div>
         <div class="ticket-id" id="rTicket"></div>
         <div class="client-name" id="rClient"></div>
       </div>
     </div>
     <div class="timeline" id="timeline"></div>
-    <div class="info-grid reveal">
+    <div class="info-grid">
       <div class="info-item"><div class="info-label">Machine</div><div class="info-value" id="rMachine"></div></div>
       <div class="info-item"><div class="info-label">Date de dépôt</div><div class="info-value" id="rDate"></div></div>
       <div class="info-item full" id="rDiagBlock" style="display:none"><div class="info-label">Note du technicien</div><div class="info-value" id="rDiag"></div></div>
@@ -83,44 +81,65 @@
 </div>
 <footer>Pour toute question, contactez votre service de réparation.</footer>
 <script>
+// ← Votre URL Apps Script
 const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwcTYwqxobmx1DQmUpnT06wAdwn9GUAIHSmH_Ou04fWLTzzM7mAX5NhKd9sQEJKdqa7/exec";
+
 const ETAPES = ["Réceptionné","Diagnostic en cours","Devis","En attente de pièce","Réparation en cours","Machine en cours de livraison"];
 
 function rechercher() {
   const input = document.getElementById("ticketInput");
   const val = input.value.trim();
   if (!val) { input.focus(); return; }
+
   document.getElementById("result").style.display = "none";
   document.getElementById("error").style.display = "none";
   document.getElementById("loader").style.display = "block";
   document.getElementById("searchBtn").disabled = true;
-  fetch(APPS_SCRIPT_URL + "?ticket=" + encodeURIComponent(val.toUpperCase()))
-    .then(r => r.json())
-    .then(data => afficherResultat(data))
-    .catch(() => afficherErreur());
+
+  // Utilisation de JSONP pour contourner le CORS de Google Apps Script
+  const callbackName = "cb_" + Date.now();
+  const script = document.createElement("script");
+  script.src = APPS_SCRIPT_URL + "?ticket=" + encodeURIComponent(val.toUpperCase()) + "&callback=" + callbackName;
+  script.onerror = () => afficherErreur();
+
+  window[callbackName] = function(data) {
+    delete window[callbackName];
+    document.body.removeChild(script);
+    afficherResultat(data);
+  };
+
+  document.body.appendChild(script);
 }
 
 function afficherResultat(data) {
   document.getElementById("loader").style.display = "none";
   document.getElementById("searchBtn").disabled = false;
-  if (!data.found) { document.getElementById("error").style.display = "block"; return; }
-  document.getElementById("rTicket").textContent = data.ticket;
-  document.getElementById("rClient").textContent = data.client;
+
+  if (!data.found) {
+    document.getElementById("error").style.display = "block";
+    return;
+  }
+
+  document.getElementById("rTicket").textContent  = data.ticket;
+  document.getElementById("rClient").textContent  = data.client;
   document.getElementById("rMachine").textContent = data.machine || "—";
-  document.getElementById("rDate").textContent = data.date || "—";
+  document.getElementById("rDate").textContent    = data.date    || "—";
+
   if (data.diagnostic) { document.getElementById("rDiag").textContent = data.diagnostic; document.getElementById("rDiagBlock").style.display = ""; }
   else { document.getElementById("rDiagBlock").style.display = "none"; }
   if (data.commentaire) { document.getElementById("rCom").textContent = data.commentaire; document.getElementById("rComBlock").style.display = ""; }
   else { document.getElementById("rComBlock").style.display = "none"; }
+
   const activeIdx = ETAPES.indexOf(data.statut);
   const timeline = document.getElementById("timeline");
   timeline.innerHTML = "";
   ETAPES.forEach((label, i) => {
-    let cls = i < activeIdx ? "done" : i === activeIdx ? "active" : "future";
+    const cls = i < activeIdx ? "done" : i === activeIdx ? "active" : "future";
     const check = `<svg width="12" height="12" viewBox="0 0 12 12" fill="none"><polyline points="2,6 5,9 10,3" stroke="#00e5a0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
     const badge = i === activeIdx ? `<span class="step-badge">EN COURS</span>` : "";
     timeline.innerHTML += `<div class="step ${cls}"><div class="dot">${cls==="done"?check:""}</div><div class="step-label">${label}${badge}</div></div>`;
   });
+
   document.getElementById("result").style.display = "block";
 }
 
@@ -136,3 +155,5 @@ document.getElementById("ticketInput").addEventListener("keydown", e => { if (e.
 </script>
 </body>
 </html>
+
+
